@@ -1,0 +1,125 @@
+---
+title: "Iris Dataset Analysis Report"
+author: "Manuel Alexis Mena Nieves"
+date: "9/19/2019"
+output: pdf_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+## 1. Introduction
+
+This is a report based on the Iris Dataset which is a multivariate data set introduced by the british statistician and biologist Ronal Fisher in his 1936 paper "The use of multiple measurements in taxonomic problems". The dataset consists of 50 samples from each of three species of Iris (Iris setosa, Iris versicolor and Iris virginica). Four features were measured from each sample: the length and the width of the sepals and petals, in centimeters.
+
+## 2. Understanting the data 
+```{r load, echo = FALSE, message = FALSE}
+library(tidyverse)
+data(iris)
+```
+
+The first step in our analysis is to understand the data. In this case, we want to know how many columns and rows has the dataset.
+
+```{r dimensions}
+dim(iris)
+```
+
+&nbsp;  
+Then we want to see the structure of the data. We see that we have four numeric features, in this case the lengths and widths of Sepal and Petal, and one factor which comprises the three species value.
+
+```{r structure}
+str(iris)  
+```
+
+&nbsp;  
+The range of the features is between 0.1 and 7.9 centimeters. The mean of the features is between 1.199 and 5.843 centimeters. We don't see NA values, son we can consider the data is tidy. In our case, we want to understand the relations between the features and the species.
+
+```{r summary}
+summary(iris)
+```
+
+## 3. Exploratory Analysis
+
+To begin with the exploratory analysis, we make a boxplot for each of the four measures. We can observe that sepal length and width distributions are almost centered, but petal length and width distributions are not. The sepal lengths have the highest median value and the petal widths the lowest median value.  
+
+```{r measures_boxplot, out.height = '100%', out.width = '100%', fig.align = 'center'}
+iris %>% gather(Measure,Value, -Species) %>% 
+  ggplot(aes(x = Measure, y = Value, fill = Measure)) + 
+  geom_boxplot(alpha = 0.4) + geom_jitter(alpha = 0.1) + 
+  labs(title = "Figure 1. Boxplot for each variable in Iris Dataset") 
+```
+
+&nbsp;  
+We can look at the distribution of each measure stratified by species and see that petal length separates setosa from versicolor and virginica. Petal width also separates setosa from versicolor and virginica. This implies that the measures related to petal have some importance in the species.
+
+```{r features_boxplot, fig.align = 'center'}
+iris %>% gather(Measure, Value, -Species) %>% 
+  ggplot(aes(x = Measure, y = Value, fill = Species)) + 
+  geom_boxplot(alpha = 0.4) + facet_wrap(~ Measure, scales = "free") + 
+  theme(axis.text.x = element_blank()) + 
+  labs(title = "Figure 2. Stratified boxplot in Iris Dataset")
+```
+
+By plotting petal length versus petal width we can see that the specie Setosa is clearly separated, and versicolor can be separated from virginica but they both have a little space in common. Even in that situation it can be used to define an algorithm with a good accuracy. 
+
+```{r two_measures_plot, fig.align = 'center'}
+iris %>% ggplot(aes(x = Petal.Length, y = Petal.Width, colour = Species)) + 
+  geom_point(aes(shape = Species), cex = 2) + 
+  labs(title="Figure 3. Petal length vs. petal width plot")
+```
+
+## 4. Modelling the data
+
+We define two set for the data modelling, in this case one for training which represents the 70% if the data, and the other set for testing our models. The modelling uses the caret package, and we set a cross validation control for the algorithms we will use.
+```{r creating_sets, warning = FALSE, message = FALSE}
+library(caret)
+set.seed(1979)
+index <- createDataPartition(iris$Species, times = 1, p = 0.3, list = FALSE )
+train_set <- iris[-index,]
+test_set <- iris[index,]
+fitControl <- trainControl(method = "repeatedcv", number = 10, repeats = 5)
+```
+
+The first algorithm we try is the decision tree, since the exploratory analysis suggest we can obtain a decision rule from petal measurements. We see a 
+
+```{r decision_tree}
+train_rpart <- train(Species ~ ., data = train_set, method = "rpart", trControl = fitControl) 
+y_hat_tree <- predict(train_rpart,test_set)
+confusionMatrix(y_hat_tree, test_set$Species)
+plot(train_rpart$finalModel, margin = 0.1, main = "Figure 4. Decision tree for Iris Dataset")
+text(train_rpart$finalModel, cex = 0.75)
+```
+
+```{r knn}
+train_knn <- train(Species ~., data = train_set, method = "knn", trControl = fitControl, 
+                   tuneGrid = data.frame(k = seq(5,20,1)))
+y_hat_knn <- predict(train_knn, test_set)
+confusionMatrix(y_hat_knn, test_set$Species)
+ggplot(train_knn,highlight = TRUE)
+```
+
+```{r random_forest}
+train_rf <- train(Species ~., data = train_set, method ="rf", trControl = fitControl)
+y_hat_rf <- predict(train_rf, test_set)
+confusionMatrix(y_hat_rf, test_set$Species)
+ggplot(varImp(train_rf))
+```
+
+## 5. Conclusions
+
+    ```{r beginning, echo = FALSE, include = FALSE}
+    echoaudience <- c("scientific", "executive")
+    ```
+
+    ```{r data1, echo = any(c("scientific","tested") %in% echoaudience)}
+    # a quite detailed info
+    ```
+
+    ```{r data2, echo = any(c("executive","brief") %in% echoaudience)}
+    # a brief summary
+    ```
+
+    ```{r data3, echo = any(c("myleftover","brief") %in% echoaudience)}
+    # some data only in my interest
+    ```
